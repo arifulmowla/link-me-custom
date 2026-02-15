@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Linkme
 
-## Getting Started
+Linkme is a URL shortener application built with Next.js App Router.
 
-First, run the development server:
+## Prerequisites
+
+1. Node.js 20+
+2. npm 10+
+3. A Neon PostgreSQL database
+
+## Environment Setup
+
+1. Copy `.env.example` to `.env`.
+2. Fill these values:
+- `DATABASE_URL`: Neon pooled connection URL
+- `DIRECT_URL`: Neon direct connection URL for Prisma migrations
+- `APP_BASE_URL`: public base URL (for local: `http://localhost:3000`)
+- `IP_HASH_SALT`: secret used to hash visitor IPs before storage
+
+## Install and Run
 
 ```bash
+npm install
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Backend Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
+npm run prisma:studio
+```
 
-## Learn More
+## API Verification
 
-To learn more about Next.js, take a look at the following resources:
+Create a short link:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+curl -X POST http://localhost:3000/api/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"url":"example.com/docs","source":"homepage_hero"}'
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Expected response:
 
-## Deploy on Vercel
+```json
+{ "shortUrl": "http://localhost:3000/abc1234", "code": "abc1234" }
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Follow the short link:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+curl -i http://localhost:3000/abc1234
+```
+
+Expected behavior: HTTP `307` redirect to the original URL when code exists.
