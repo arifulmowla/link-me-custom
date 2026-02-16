@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { auth } from "@/auth";
 import { generateShortCode } from "@/lib/short-code";
 import { normalizeUrl } from "@/lib/url";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -14,7 +15,9 @@ const shortenSchema = z.object({
 });
 
 const SHORTEN_LIMIT = 10;
+const SHORTEN_AUTH_LIMIT = 30;
 const SHORTEN_WINDOW_MS = 60_000;
+const GUEST_TOKEN_COOKIE = "lm_guest_token";
 
 function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
@@ -55,11 +58,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const session = await auth();
+    const userId = session?.user?.id ?? null;
     const ipHash = hashIp(getClientIp(request.headers), process.env.IP_HASH_SALT ?? "change-me");
+    const rateLimitKey = userId ? `shorten:user:${userId}` : `shorten:ip:${ipHash}`;
+    const rateLimitLimit = userId ? SHORTEN_AUTH_LIMIT : SHORTEN_LIMIT;
+
     const rateLimit = await consumeRateLimit({
-      key: `shorten:${ipHash}`,
+      key: rateLimitKey,
       endpoint: "shorten",
-      limit: SHORTEN_LIMIT,
+      limit: rateLimitLimit,
       windowMs: SHORTEN_WINDOW_MS,
     });
 
@@ -83,6 +91,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const currentGuestToken = request.cookies.get(GUEST_TOKEN_COOKIE)?.value;
+    const guestToken = userId ? null : currentGuestToken ?? crypto.randomUUID();
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const code = generateShortCode(7);
       try {
@@ -91,7 +102,8 @@ export async function POST(request: NextRequest) {
             code,
             targetUrl: normalized.url,
             source: parsed.data.source,
-            ownerUserId: null,
+            ownerUserId: userId,
+            guestToken,
           },
           select: {
             code: true,
@@ -105,12 +117,28 @@ export async function POST(request: NextRequest) {
             event: "shorten_success",
             ...logBase,
             code: link.code,
+            ownerType: userId ? "authenticated" : "guest",
           }),
         );
-        return NextResponse.json({
+
+        const response = NextResponse.json({
           shortUrl: `${baseUrl}/${link.code}`,
           code: link.code,
         });
+
+        if (!userId && guestToken) {
+          response.cookies.set({
+            name: GUEST_TOKEN_COOKIE,
+            value: guestToken,
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 30,
+          });
+        }
+
+        return response;
       } catch (error) {
         if (isUniqueConstraintError(error)) {
           continue;

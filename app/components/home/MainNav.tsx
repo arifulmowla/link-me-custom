@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 
 const navItems = [
   { href: "#features", label: "Features" },
@@ -6,7 +7,10 @@ const navItems = [
   { href: "#about", label: "About" },
 ];
 
-export function MainNav() {
+export async function MainNav() {
+  const session = await auth();
+  const dashboardHref = session?.user ? "/dashboard" : "/login";
+
   return (
     <nav
       aria-label="Primary"
@@ -33,18 +37,18 @@ export function MainNav() {
       </ul>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <a
+        <Link
           className="focus-ring rounded-full px-4 py-2 text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-          href="#"
+          href="/login"
         >
-          Login
-        </a>
-        <a
+          {session?.user ? "Account" : "Login"}
+        </Link>
+        <Link
           className="focus-ring hover-lift rounded-full border border-[var(--stroke)] bg-[var(--text-primary)] px-4 py-2 text-sm font-semibold text-white"
-          href="#"
+          href={dashboardHref}
         >
-          Get Started
-        </a>
+          {session?.user ? "Dashboard" : "Get Started"}
+        </Link>
       </div>
     </nav>
   );

@@ -16,6 +16,10 @@ Linkme is a URL shortener application built with Next.js App Router.
 - `DIRECT_URL`: Neon direct connection URL for Prisma migrations
 - `APP_BASE_URL`: public base URL (for local: `http://localhost:3000`)
 - `IP_HASH_SALT`: secret used to hash visitor IPs before storage
+- `AUTH_SECRET`: long random secret for Auth.js sessions
+- `AUTH_URL`: app URL (for local: `http://localhost:3000`)
+- `GOOGLE_CLIENT_ID`: Google OAuth client id
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
 
 ## Install and Run
 
@@ -61,3 +65,12 @@ curl -i http://localhost:3000/abc1234
 ```
 
 Expected behavior: HTTP `307` redirect to the original URL when code exists.
+
+## Auth and Dashboard
+
+1. Visit `/login` and sign in with Google.
+2. After OAuth, users are redirected through `/auth/claim` to `/dashboard`.
+3. Dashboard includes:
+- KPI cards: total links, total clicks, last 7 days clicks
+- Create link card
+- Links table with copy and delete actions

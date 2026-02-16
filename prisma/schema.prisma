@@ -14,14 +14,17 @@ model Link {
   targetUrl   String
   source      String    @default("homepage_hero")
   ownerUserId String?
+  guestToken  String?
   isActive    Boolean   @default(true)
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  owner       User?     @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   clicks      LinkClick[]
 
   @@index([createdAt])
   @@index([ownerUserId])
+  @@index([guestToken])
   @@index([isActive, expiresAt])
 }
 
@@ -48,4 +51,54 @@ model RateLimitEvent {
 
   @@unique([key, endpoint, bucketStart])
   @@index([endpoint, bucketStart])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  links         Link[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionToken])
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@unique([token])
 }

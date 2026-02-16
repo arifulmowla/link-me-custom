@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function FooterCta() {
   return (
     <section className="surface-card flex flex-col items-start justify-between gap-4 rounded-[28px] bg-[var(--text-primary)] px-5 py-6 text-white sm:flex-row sm:items-center sm:px-7">
@@ -9,12 +11,12 @@ export function FooterCta() {
           Create and share your first short link in minutes
         </h2>
       </div>
-      <a
+      <Link
         className="focus-ring hover-lift rounded-full border border-white bg-white px-5 py-3 text-sm font-bold text-[var(--text-primary)]"
-        href="#"
+        href="/login"
       >
         Create free account
-      </a>
+      </Link>
     </section>
   );
 }
