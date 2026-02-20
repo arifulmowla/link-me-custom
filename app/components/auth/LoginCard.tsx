@@ -9,7 +9,7 @@ export function LoginCard({ googleConfigured, onGoogleSignIn }: LoginCardProps) 
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         Welcome back
       </p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Sign in to Linkme</h1>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight">Sign in to urlsy.co</h1>
       <p className="mt-3 text-sm text-[var(--text-muted)]">
         Continue with your Google account to access your dashboard, links, and analytics.
       </p>

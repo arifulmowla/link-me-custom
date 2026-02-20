@@ -1,6 +1,6 @@
-# Linkme
+# urlsy.co
 
-Linkme is a URL shortener application built with Next.js App Router.
+urlsy.co is a URL shortener application built with Next.js App Router.
 
 ## Prerequisites
 

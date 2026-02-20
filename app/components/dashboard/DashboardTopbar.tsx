@@ -21,11 +21,11 @@ export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
         className="surface-card flex flex-wrap items-center justify-between gap-3 rounded-[28px] px-4 py-4 sm:px-6"
       >
         <Link
-          href="/dashboard"
-          className="focus-ring hover-lift rounded-full border border-transparent px-3 py-2 text-lg font-bold tracking-tight"
-        >
-          Linkme
-        </Link>
+        className="focus-ring rounded-full border border-transparent px-3 py-2 text-lg font-bold tracking-tight"
+        href="/"
+      >
+        url<span className="text-[var(--bg-hero)]">sy.co</span>
+      </Link>
 
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3">
           <a
@@ -41,12 +41,12 @@ export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
             Billing
           </Link>
 
-          <input
+          {/* <input
             type="text"
             placeholder="Search links"
             aria-label="Search links"
             className="focus-ring h-10 w-full rounded-full border border-[var(--stroke)]/35 bg-white px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] sm:max-w-48"
-          />
+          /> */}
 
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--text-primary)] text-sm font-bold text-white">
             {initial}

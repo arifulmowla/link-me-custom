@@ -17,10 +17,10 @@ export async function MainNav() {
       className="surface-card flex flex-wrap items-center justify-between gap-4 rounded-[28px] px-5 py-4 sm:px-7"
     >
       <Link
-        className="focus-ring hover-lift rounded-full border border-transparent px-3 py-2 text-lg font-bold tracking-tight"
+        className="focus-ring rounded-full border border-transparent px-3 py-2 text-lg font-bold tracking-tight"
         href="/"
       >
-        Linkme
+        url<span className="text-[var(--bg-hero)]">sy.co</span>
       </Link>
 
       <ul className="hidden items-center gap-6 text-sm font-semibold text-[var(--text-muted)] md:flex">

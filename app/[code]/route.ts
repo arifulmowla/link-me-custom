@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/ip";
+import { getDeviceType, getGeoFromHeaders } from "@/lib/geo";
 import { isReservedCode, SHORT_CODE_PATTERN } from "@/lib/reserved-codes";
 import { canTrackMoreClicks, monthStartUtc } from "@/lib/plans";
 
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const ipHash = hashIp(getClientIp(request.headers), process.env.IP_HASH_SALT ?? "change-me");
     const userAgent = request.headers.get("user-agent");
     const referrer = request.headers.get("referer");
+    const { country, region, city } = getGeoFromHeaders(request.headers);
+    const deviceType = getDeviceType(userAgent);
     const usageMonthStart = monthStartUtc();
 
     let shouldTrackClick = true;
@@ -95,6 +98,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 ipHash,
                 userAgent,
                 referrer,
+                country,
+                region,
+                city,
+                deviceType,
               },
             }),
             db.usageMonthly.upsert({
@@ -124,6 +131,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
               ipHash,
               userAgent,
               referrer,
+              country,
+              region,
+              city,
+              deviceType,
             },
           });
         }

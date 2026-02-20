@@ -22,7 +22,7 @@ export function TrustStats() {
           Reliable links for public sharing
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--text-muted)] sm:text-base">
-          Linkme is designed for creators and teams that need fast links, stable redirects,
+          urlsy.co is designed for creators and teams that need fast links, stable redirects,
           and clear performance reporting.
         </p>
       </div>

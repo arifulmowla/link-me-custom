@@ -41,10 +41,15 @@ model LinkClick {
   userAgent String?
   referrer  String?
   country   String?
+  region    String?
+  city      String?
+  deviceType String?
   link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
   @@index([linkId, clickedAt])
   @@index([clickedAt])
+  @@index([country, region])
+  @@index([deviceType])
 }
 
 model RateLimitEvent {

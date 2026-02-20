@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CreateLinkCard } from "@/app/components/dashboard/CreateLinkCard";
+import { AnalyticsCard } from "@/app/components/dashboard/AnalyticsCard";
 import { KpiCards } from "@/app/components/dashboard/KpiCards";
 import { LinksTableCard } from "@/app/components/dashboard/LinksTableCard";
 import { UsageBarCard } from "@/app/components/dashboard/UsageBarCard";
@@ -74,8 +75,10 @@ export function DashboardClient({
     <>
       <KpiCards kpis={kpis} />
       <UsageBarCard plan={plan} usage={usage} />
+      <AnalyticsCard plan={plan} />
       <CreateLinkCard plan={plan} usage={usage} onCreated={handleCreate} />
       <LinksTableCard
+        plan={plan}
         links={links}
         pendingDeleteId={pendingDeleteId}
         copiedCode={copiedCode}

@@ -26,3 +26,23 @@ export type DashboardLinksResponse = {
   kpis: DashboardKpis;
   links: DashboardLinkItem[];
 };
+
+export type AdvancedAnalyticsSeriesPoint = {
+  date: string;
+  clicks: number;
+};
+
+export type AdvancedAnalyticsBreakdown = {
+  name: string;
+  clicks: number;
+};
+
+export type AdvancedAnalyticsResponse = {
+  timeSeries: AdvancedAnalyticsSeriesPoint[];
+  uniqueVisitors: number;
+  topReferrers: AdvancedAnalyticsBreakdown[];
+  topCountries: AdvancedAnalyticsBreakdown[];
+  topRegions: AdvancedAnalyticsBreakdown[];
+  topCities: AdvancedAnalyticsBreakdown[];
+  topDevices: AdvancedAnalyticsBreakdown[];
+};

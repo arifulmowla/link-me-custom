@@ -13,7 +13,11 @@ function parseWindow(value: string | null): WindowKey {
   return "30";
 }
 
-export async function GET(request: NextRequest) {
+type RouteContext = {
+  params: Promise<{ id: string }> | { id: string };
+};
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
@@ -30,6 +34,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "pro_required" }, { status: 402 });
   }
 
+  const { id } = await Promise.resolve(context.params);
+
+  const link = await db.link.findFirst({
+    where: { id, ownerUserId: userId },
+    select: { id: true },
+  });
+
+  if (!link) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const windowParam = parseWindow(request.nextUrl.searchParams.get("window"));
   const since =
     windowParam === "all"
@@ -42,8 +57,8 @@ export async function GET(request: NextRequest) {
 
   const clicks = await db.linkClick.findMany({
     where: {
+      linkId: link.id,
       ...(since ? { clickedAt: { gte: since } } : {}),
-      link: { ownerUserId: userId },
     },
     select: {
       clickedAt: true,
@@ -59,7 +74,5 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const analytics = buildAnalyticsResponse(clicks);
-
-  return NextResponse.json(analytics);
+  return NextResponse.json(buildAnalyticsResponse(clicks));
 }
