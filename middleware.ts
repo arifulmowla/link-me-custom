@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { NextRequest, NextResponse } from "next/server";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -15,11 +14,14 @@ function isProtectedPath(pathname: string) {
   );
 }
 
-export default auth((request) => {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const isLoggedIn = Boolean(request.auth);
+  const hasSession = Boolean(
+    request.cookies.get("__Secure-authjs.session-token") ??
+      request.cookies.get("authjs.session-token"),
+  );
 
-  if (!isLoggedIn && isProtectedPath(pathname)) {
+  if (!hasSession && isProtectedPath(pathname)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
@@ -28,12 +30,12 @@ export default auth((request) => {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (isLoggedIn && pathname === "/login") {
+  if (hasSession && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin));
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
