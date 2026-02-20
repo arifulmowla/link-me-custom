@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/ip";
 import { isReservedCode, SHORT_CODE_PATTERN } from "@/lib/reserved-codes";
+import { canTrackMoreClicks, monthStartUtc } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id: true,
         code: true,
         targetUrl: true,
+        ownerUserId: true,
+        owner: {
+          select: {
+            planTier: true,
+          },
+        },
       },
     });
 
@@ -48,16 +55,79 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const ipHash = hashIp(getClientIp(request.headers), process.env.IP_HASH_SALT ?? "change-me");
     const userAgent = request.headers.get("user-agent");
     const referrer = request.headers.get("referer");
+    const usageMonthStart = monthStartUtc();
 
-    try {
-      await db.linkClick.create({
-        data: {
-          linkId: link.id,
-          ipHash,
-          userAgent,
-          referrer,
+    let shouldTrackClick = true;
+    if (link.ownerUserId && link.owner?.planTier === "FREE") {
+      const usage = await db.usageMonthly.findUnique({
+        where: {
+          userId_monthStart: {
+            userId: link.ownerUserId,
+            monthStart: usageMonthStart,
+          },
+        },
+        select: {
+          trackedClicks: true,
         },
       });
+
+      const trackedClicks = usage?.trackedClicks ?? 0;
+      shouldTrackClick = canTrackMoreClicks("FREE", trackedClicks);
+      if (!shouldTrackClick) {
+        console.log(
+          JSON.stringify({
+            event: "click_tracking_capped",
+            route: "/[code]",
+            requestId,
+            code: normalizedCode,
+          }),
+        );
+      }
+    }
+
+    try {
+      if (shouldTrackClick) {
+        if (link.ownerUserId) {
+          await db.$transaction([
+            db.linkClick.create({
+              data: {
+                linkId: link.id,
+                ipHash,
+                userAgent,
+                referrer,
+              },
+            }),
+            db.usageMonthly.upsert({
+              where: {
+                userId_monthStart: {
+                  userId: link.ownerUserId,
+                  monthStart: usageMonthStart,
+                },
+              },
+              create: {
+                userId: link.ownerUserId,
+                monthStart: usageMonthStart,
+                trackedClicks: 1,
+                createdLinks: 0,
+              },
+              update: {
+                trackedClicks: {
+                  increment: 1,
+                },
+              },
+            }),
+          ]);
+        } else {
+          await db.linkClick.create({
+            data: {
+              linkId: link.id,
+              ipHash,
+              userAgent,
+              referrer,
+            },
+          });
+        }
+      }
     } catch (error) {
       console.error(
         JSON.stringify({

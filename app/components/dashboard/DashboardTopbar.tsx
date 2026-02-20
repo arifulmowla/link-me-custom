@@ -34,6 +34,12 @@ export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
           >
             New Link
           </a>
+          <Link
+            href="/dashboard/billing"
+            className="focus-ring rounded-full border border-[var(--stroke)]/35 bg-white px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+          >
+            Billing
+          </Link>
 
           <input
             type="text"

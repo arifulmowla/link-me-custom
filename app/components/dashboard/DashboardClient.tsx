@@ -4,14 +4,24 @@ import { useState } from "react";
 import { CreateLinkCard } from "@/app/components/dashboard/CreateLinkCard";
 import { KpiCards } from "@/app/components/dashboard/KpiCards";
 import { LinksTableCard } from "@/app/components/dashboard/LinksTableCard";
-import type { DashboardKpis, DashboardLinkItem } from "@/lib/dashboard-types";
+import { UsageBarCard } from "@/app/components/dashboard/UsageBarCard";
+import type { DashboardKpis, DashboardLinkItem, DashboardUsage } from "@/lib/dashboard-types";
 
 type DashboardClientProps = {
+  initialPlan: "FREE" | "PRO";
+  initialUsage: DashboardUsage;
   initialKpis: DashboardKpis;
   initialLinks: DashboardLinkItem[];
 };
 
-export function DashboardClient({ initialKpis, initialLinks }: DashboardClientProps) {
+export function DashboardClient({
+  initialPlan,
+  initialUsage,
+  initialKpis,
+  initialLinks,
+}: DashboardClientProps) {
+  const [plan] = useState<"FREE" | "PRO">(initialPlan);
+  const [usage, setUsage] = useState(initialUsage);
   const [kpis, setKpis] = useState(initialKpis);
   const [links, setLinks] = useState(initialLinks);
   const [copiedCode, setCopiedCode] = useState("");
@@ -20,14 +30,21 @@ export function DashboardClient({ initialKpis, initialLinks }: DashboardClientPr
   function prependLink(link: DashboardLinkItem) {
     setLinks((prev) => [link, ...prev]);
     setKpis((prev) => ({ ...prev, totalLinks: prev.totalLinks + 1 }));
+    setUsage((prev) => ({ ...prev, activeLinks: prev.activeLinks + 1 }));
   }
 
-  async function handleCreate(payload: { id: string; code: string; targetUrl: string }) {
+  async function handleCreate(payload: {
+    id: string;
+    code: string;
+    targetUrl: string;
+    expiresAt: string | null;
+  }) {
     const created: DashboardLinkItem = {
       id: payload.id,
       code: payload.code,
       targetUrl: payload.targetUrl,
       createdAt: new Date().toISOString(),
+      expiresAt: payload.expiresAt,
       clickCount: 0,
     };
     prependLink(created);
@@ -40,6 +57,7 @@ export function DashboardClient({ initialKpis, initialLinks }: DashboardClientPr
       if (!response.ok) return;
       setLinks((prev) => prev.filter((item) => item.id !== id));
       setKpis((prev) => ({ ...prev, totalLinks: Math.max(0, prev.totalLinks - 1) }));
+      setUsage((prev) => ({ ...prev, activeLinks: Math.max(0, prev.activeLinks - 1) }));
     } finally {
       setPendingDeleteId("");
     }
@@ -55,7 +73,8 @@ export function DashboardClient({ initialKpis, initialLinks }: DashboardClientPr
   return (
     <>
       <KpiCards kpis={kpis} />
-      <CreateLinkCard onCreated={handleCreate} />
+      <UsageBarCard plan={plan} usage={usage} />
+      <CreateLinkCard plan={plan} usage={usage} onCreated={handleCreate} />
       <LinksTableCard
         links={links}
         pendingDeleteId={pendingDeleteId}

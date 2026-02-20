@@ -5,11 +5,22 @@ import { db } from "@/lib/db";
 import { normalizeUrl } from "@/lib/url";
 import { generateShortCode } from "@/lib/short-code";
 import type { DashboardLinksResponse } from "@/lib/dashboard-types";
+import {
+  activeLinksLimitForPlan,
+  canCreateMoreActiveLinks,
+  canUseAlias,
+  canUseExpiry,
+  monthStartUtc,
+  trackedClicksLimitForPlan,
+} from "@/lib/plans";
+import { isReservedCode, SHORT_CODE_PATTERN } from "@/lib/reserved-codes";
 
 export const runtime = "nodejs";
 
 const createLinkSchema = z.object({
   url: z.string(),
+  alias: z.string().optional(),
+  expiresAt: z.string().optional(),
 });
 
 function unauthorized() {
@@ -25,9 +36,16 @@ export async function GET() {
   const userId = session?.user?.id;
   if (!userId) return unauthorized();
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  const monthStart = monthStartUtc();
+  const now = new Date();
 
-  const [links, totalClicks, clicksLast7d] = await Promise.all([
+  const [user, links, totalClicks, clicksLast7d, usageMonth, activeLinks] = await Promise.all([
+    db.user.findUnique({
+      where: { id: userId },
+      select: { planTier: true },
+    }),
     db.link.findMany({
       where: { ownerUserId: userId },
       orderBy: { createdAt: "desc" },
@@ -36,6 +54,7 @@ export async function GET() {
         code: true,
         targetUrl: true,
         createdAt: true,
+        expiresAt: true,
         _count: {
           select: {
             clicks: true,
@@ -54,9 +73,35 @@ export async function GET() {
         link: { ownerUserId: userId },
       },
     }),
+    db.usageMonthly.findUnique({
+      where: {
+        userId_monthStart: {
+          userId,
+          monthStart,
+        },
+      },
+      select: {
+        trackedClicks: true,
+      },
+    }),
+    db.link.count({
+      where: {
+        ownerUserId: userId,
+        isActive: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+    }),
   ]);
 
+  const plan = user?.planTier ?? "FREE";
   const response: DashboardLinksResponse = {
+    plan,
+    usage: {
+      activeLinks,
+      activeLinksLimit: activeLinksLimitForPlan(plan),
+      trackedClicksThisMonth: usageMonth?.trackedClicks ?? 0,
+      trackedClicksLimit: trackedClicksLimitForPlan(plan),
+    },
     kpis: {
       totalLinks: links.length,
       totalClicks,
@@ -67,6 +112,7 @@ export async function GET() {
       code: link.code,
       targetUrl: link.targetUrl,
       createdAt: link.createdAt.toISOString(),
+      expiresAt: link.expiresAt?.toISOString() ?? null,
       clickCount: link._count.clicks,
     })),
   };
@@ -91,26 +137,93 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { planTier: true },
+  });
+  const plan = user?.planTier ?? "FREE";
+
   const normalized = normalizeUrl(parsed.data.url);
   if (!normalized.ok) {
     return NextResponse.json({ error: "invalid_url" }, { status: 400 });
   }
 
+  const now = new Date();
+  const activeLinks = await db.link.count({
+    where: {
+      ownerUserId: userId,
+      isActive: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+  });
+
+  if (!canCreateMoreActiveLinks(plan, activeLinks)) {
+    return NextResponse.json({ error: "free_limit_reached" }, { status: 403 });
+  }
+
+  const rawAlias = parsed.data.alias?.trim();
+  if (rawAlias && !canUseAlias(plan)) {
+    return NextResponse.json({ error: "pro_required" }, { status: 402 });
+  }
+
+  const rawExpiresAt = parsed.data.expiresAt?.trim();
+  if (rawExpiresAt && !canUseExpiry(plan)) {
+    return NextResponse.json({ error: "pro_required" }, { status: 402 });
+  }
+
+  if (rawAlias && (!SHORT_CODE_PATTERN.test(rawAlias) || isReservedCode(rawAlias))) {
+    return NextResponse.json({ error: "invalid_alias" }, { status: 400 });
+  }
+
+  let expiresAt: Date | null = null;
+  if (rawExpiresAt) {
+    expiresAt = new Date(rawExpiresAt);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {
+      return NextResponse.json({ error: "invalid_expires_at" }, { status: 400 });
+    }
+  }
+
+  const usageMonthStart = monthStartUtc();
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
+    const codeCandidate = rawAlias ?? generateShortCode(7);
     try {
-      const link = await db.link.create({
-        data: {
-          code: generateShortCode(7),
-          targetUrl: normalized.url,
-          source: "dashboard_create",
-          ownerUserId: userId,
-          guestToken: null,
-        },
-        select: {
-          id: true,
-          code: true,
-        },
-      });
+      const [link] = await db.$transaction([
+        db.link.create({
+          data: {
+            code: codeCandidate,
+            targetUrl: normalized.url,
+            source: "dashboard_create",
+            ownerUserId: userId,
+            guestToken: null,
+            expiresAt,
+          },
+          select: {
+            id: true,
+            code: true,
+            expiresAt: true,
+          },
+        }),
+        db.usageMonthly.upsert({
+          where: {
+            userId_monthStart: {
+              userId,
+              monthStart: usageMonthStart,
+            },
+          },
+          create: {
+            userId,
+            monthStart: usageMonthStart,
+            trackedClicks: 0,
+            createdLinks: 1,
+          },
+          update: {
+            createdLinks: {
+              increment: 1,
+            },
+          },
+        }),
+      ]);
 
       const baseUrl = (process.env.APP_BASE_URL ?? request.nextUrl.origin).replace(/\/+$/, "");
       return NextResponse.json({
@@ -118,12 +231,17 @@ export async function POST(request: NextRequest) {
         code: link.code,
         targetUrl: normalized.url,
         shortUrl: `${baseUrl}/${link.code}`,
+        expiresAt: link.expiresAt?.toISOString() ?? null,
       });
     } catch (error) {
-      if (!isUniqueConstraintError(error)) {
-        console.error("dashboard_create_link_error", error);
-        return NextResponse.json({ error: "server_error" }, { status: 500 });
+      if (isUniqueConstraintError(error)) {
+        if (rawAlias) {
+          return NextResponse.json({ error: "alias_taken" }, { status: 409 });
+        }
+        continue;
       }
+      console.error("dashboard_create_link_error", error);
+      return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
   }
 

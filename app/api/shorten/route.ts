@@ -6,6 +6,7 @@ import { generateShortCode } from "@/lib/short-code";
 import { normalizeUrl } from "@/lib/url";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { getClientIp, hashIp } from "@/lib/ip";
+import { canCreateMoreActiveLinks, monthStartUtc } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -94,21 +95,76 @@ export async function POST(request: NextRequest) {
     const currentGuestToken = request.cookies.get(GUEST_TOKEN_COOKIE)?.value;
     const guestToken = userId ? null : currentGuestToken ?? crypto.randomUUID();
 
+    if (userId) {
+      const [user, activeLinks] = await Promise.all([
+        db.user.findUnique({
+          where: { id: userId },
+          select: { planTier: true },
+        }),
+        db.link.count({
+          where: {
+            ownerUserId: userId,
+            isActive: true,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        }),
+      ]);
+
+      const plan = user?.planTier ?? "FREE";
+      if (!canCreateMoreActiveLinks(plan, activeLinks)) {
+        return NextResponse.json({ error: "free_limit_reached" }, { status: 403 });
+      }
+    }
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const code = generateShortCode(7);
       try {
-        const link = await db.link.create({
-          data: {
-            code,
-            targetUrl: normalized.url,
-            source: parsed.data.source,
-            ownerUserId: userId,
-            guestToken,
-          },
-          select: {
-            code: true,
-          },
-        });
+        const [link] = userId
+          ? await db.$transaction([
+              db.link.create({
+                data: {
+                  code,
+                  targetUrl: normalized.url,
+                  source: parsed.data.source,
+                  ownerUserId: userId,
+                  guestToken,
+                },
+                select: {
+                  code: true,
+                },
+              }),
+              db.usageMonthly.upsert({
+                where: {
+                  userId_monthStart: {
+                    userId,
+                    monthStart: monthStartUtc(),
+                  },
+                },
+                create: {
+                  userId,
+                  monthStart: monthStartUtc(),
+                  trackedClicks: 0,
+                  createdLinks: 1,
+                },
+                update: {
+                  createdLinks: {
+                    increment: 1,
+                  },
+                },
+              }),
+            ])
+          : [await db.link.create({
+              data: {
+                code,
+                targetUrl: normalized.url,
+                source: parsed.data.source,
+                ownerUserId: userId,
+                guestToken,
+              },
+              select: {
+                code: true,
+              },
+            })];
 
         const baseUrl = (process.env.APP_BASE_URL ?? request.nextUrl.origin).replace(/\/+$/, "");
 

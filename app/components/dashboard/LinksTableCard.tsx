@@ -53,6 +53,7 @@ export function LinksTableCard({
               <th className="px-3 py-2">Short</th>
               <th className="px-3 py-2">Target</th>
               <th className="px-3 py-2">Clicks</th>
+              <th className="px-3 py-2">Expiry</th>
               <th className="px-3 py-2">Created</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -63,6 +64,9 @@ export function LinksTableCard({
                 <td className="rounded-l-2xl px-3 py-3 font-semibold">{link.code}</td>
                 <td className="max-w-xs truncate px-3 py-3 text-[var(--text-muted)]">{link.targetUrl}</td>
                 <td className="px-3 py-3 font-semibold">{link.clickCount}</td>
+                <td className="px-3 py-3 text-[var(--text-muted)]">
+                  {link.expiresAt ? formatDate(link.expiresAt) : "Never"}
+                </td>
                 <td className="px-3 py-3 text-[var(--text-muted)]">{formatDate(link.createdAt)}</td>
                 <td className="rounded-r-2xl px-3 py-3">
                   <div className="flex items-center gap-2">

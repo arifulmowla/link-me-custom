@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/api/links", "/auth/claim"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/api/links",
+  "/api/billing",
+  "/api/analytics/advanced",
+  "/auth/claim",
+];
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
@@ -14,7 +20,7 @@ export default auth((request) => {
   const isLoggedIn = Boolean(request.auth);
 
   if (!isLoggedIn && isProtectedPath(pathname)) {
-    if (pathname.startsWith("/api/links")) {
+    if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
     const redirectUrl = new URL("/login", request.nextUrl.origin);
@@ -30,5 +36,12 @@ export default auth((request) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/links/:path*", "/auth/claim", "/login"],
+  matcher: [
+    "/dashboard/:path*",
+    "/api/links/:path*",
+    "/api/billing/:path*",
+    "/api/analytics/advanced",
+    "/auth/claim",
+    "/login",
+  ],
 };

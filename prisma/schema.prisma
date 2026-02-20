@@ -8,6 +8,11 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum PlanTier {
+  FREE
+  PRO
+}
+
 model Link {
   id          String    @id @default(cuid())
   code        String    @unique
@@ -59,9 +64,13 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  stripeCustomerId String? @unique
+  planTier      PlanTier  @default(FREE)
   accounts      Account[]
   sessions      Session[]
   links         Link[]
+  subscription  Subscription?
+  usageMonthly  UsageMonthly[]
 }
 
 model Account {
@@ -101,4 +110,44 @@ model VerificationToken {
 
   @@id([identifier, token])
   @@unique([token])
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  planTier           PlanTier @default(FREE)
+  status             String
+  stripeCustomerId   String
+  stripeSubscriptionId String? @unique
+  stripePriceId      String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([planTier, status])
+}
+
+model UsageMonthly {
+  id            String   @id @default(cuid())
+  userId        String
+  monthStart    DateTime
+  trackedClicks Int      @default(0)
+  createdLinks  Int      @default(0)
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, monthStart])
+  @@index([monthStart])
+}
+
+model StripeEvent {
+  id          String   @id
+  type        String
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+  status      String
+  errorMessage String?
 }
