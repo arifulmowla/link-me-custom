@@ -5,15 +5,31 @@ import { getStripeClient, upsertSubscriptionFromStripeSubscription } from "@/lib
 
 export const runtime = "nodejs";
 
-async function processStripeEvent(event: Stripe.Event) {
+type ProcessResult = {
+  customerId: string | null;
+  subscriptionId: string | null;
+  userId: string | null;
+  result: "processed" | "ignored" | "user_unmapped";
+};
+
+function logWebhook(details: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      route: "/api/stripe/webhook",
+      ...details,
+    }),
+  );
+}
+
+async function processStripeEvent(event: Stripe.Event): Promise<ProcessResult> {
   const stripe = getStripeClient();
 
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const customerId =
-        typeof session.customer === "string" ? session.customer : session.customer?.id;
-      const userId = session.client_reference_id ?? session.metadata?.userId;
+        typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+      const userId = session.client_reference_id ?? session.metadata?.userId ?? null;
 
       if (userId && customerId) {
         await db.user.update({
@@ -25,13 +41,27 @@ async function processStripeEvent(event: Stripe.Event) {
       const subscriptionId =
         typeof session.subscription === "string"
           ? session.subscription
-          : session.subscription?.id;
+          : session.subscription?.id ?? null;
 
       if (subscriptionId && customerId) {
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await upsertSubscriptionFromStripeSubscription(stripeSubscription, customerId);
+        const syncResult = await upsertSubscriptionFromStripeSubscription(stripeSubscription, customerId, {
+          userIdHint: userId,
+        });
+        return {
+          customerId,
+          subscriptionId,
+          userId,
+          result: syncResult ? "processed" : "user_unmapped",
+        };
       }
-      break;
+
+      return {
+        customerId,
+        subscriptionId,
+        userId,
+        result: "ignored",
+      };
     }
     case "customer.subscription.created":
     case "customer.subscription.updated":
@@ -40,12 +70,27 @@ async function processStripeEvent(event: Stripe.Event) {
       const customerId =
         typeof subscription.customer === "string"
           ? subscription.customer
-          : subscription.customer?.id;
+          : subscription.customer?.id ?? null;
+      const userId = subscription.metadata?.userId ?? null;
 
       if (customerId) {
-        await upsertSubscriptionFromStripeSubscription(subscription, customerId);
+        const syncResult = await upsertSubscriptionFromStripeSubscription(subscription, customerId, {
+          userIdHint: userId,
+        });
+        return {
+          customerId,
+          subscriptionId: subscription.id,
+          userId,
+          result: syncResult ? "processed" : "user_unmapped",
+        };
       }
-      break;
+
+      return {
+        customerId,
+        subscriptionId: subscription.id,
+        userId,
+        result: "ignored",
+      };
     }
     case "invoice.paid":
     case "invoice.payment_failed": {
@@ -54,18 +99,38 @@ async function processStripeEvent(event: Stripe.Event) {
       const subscriptionId =
         typeof invoiceSubscription === "string"
           ? invoiceSubscription
-          : invoiceSubscription?.id;
+          : invoiceSubscription?.id ?? null;
       const customerId =
-        typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+        typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id ?? null;
+      const userId = invoice.parent?.subscription_details?.metadata?.userId ?? null;
 
       if (subscriptionId && customerId) {
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await upsertSubscriptionFromStripeSubscription(stripeSubscription, customerId);
+        const syncResult = await upsertSubscriptionFromStripeSubscription(stripeSubscription, customerId, {
+          userIdHint: userId,
+        });
+        return {
+          customerId,
+          subscriptionId,
+          userId,
+          result: syncResult ? "processed" : "user_unmapped",
+        };
       }
-      break;
+
+      return {
+        customerId,
+        subscriptionId,
+        userId,
+        result: "ignored",
+      };
     }
     default:
-      break;
+      return {
+        customerId: null,
+        subscriptionId: null,
+        userId: null,
+        result: "ignored",
+      };
   }
 }
 
@@ -97,6 +162,11 @@ export async function POST(request: NextRequest) {
   });
 
   if (existing?.status === "processed") {
+    logWebhook({
+      event: "stripe_webhook_duplicate",
+      stripeEventId: event.id,
+      stripeEventType: event.type,
+    });
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
@@ -116,13 +186,22 @@ export async function POST(request: NextRequest) {
   });
 
   try {
-    await processStripeEvent(event);
+    const result = await processStripeEvent(event);
     await db.stripeEvent.update({
       where: { id: event.id },
       data: {
         status: "processed",
         processedAt: new Date(),
       },
+    });
+    logWebhook({
+      event: "stripe_webhook_processed",
+      stripeEventId: event.id,
+      stripeEventType: event.type,
+      customerId: result.customerId,
+      subscriptionId: result.subscriptionId,
+      userId: result.userId,
+      result: result.result,
     });
   } catch (error) {
     await db.stripeEvent.update({
@@ -132,7 +211,13 @@ export async function POST(request: NextRequest) {
         errorMessage: error instanceof Error ? error.message : "unknown_error",
       },
     });
-    throw error;
+    logWebhook({
+      event: "stripe_webhook_failed",
+      stripeEventId: event.id,
+      stripeEventType: event.type,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+    return NextResponse.json({ error: "webhook_processing_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

@@ -24,9 +24,17 @@ export default async function BillingPage() {
       select: {
         status: true,
         currentPeriodEnd: true,
+        stripePriceId: true,
       },
     }),
   ]);
+
+  const activeStatuses = new Set(["active", "trialing", "past_due"]);
+  const monthlyPriceId = process.env.STRIPE_PRICE_PRO_MONTHLY_USD ?? "";
+  const yearlyPriceId = process.env.STRIPE_PRICE_PRO_YEARLY_USD ?? "";
+  const isActive = subscription?.status ? activeStatuses.has(subscription.status) : false;
+  const isActiveMonthly = Boolean(isActive && subscription?.stripePriceId === monthlyPriceId);
+  const isActiveYearly = Boolean(isActive && subscription?.stripePriceId === yearlyPriceId);
 
   return (
     <DashboardShell name={session.user?.name} email={session.user?.email}>
@@ -34,6 +42,8 @@ export default async function BillingPage() {
         currentPlan={user?.planTier ?? "FREE"}
         subscriptionStatus={subscription?.status ?? null}
         currentPeriodEnd={subscription?.currentPeriodEnd?.toISOString() ?? null}
+        isActiveMonthly={isActiveMonthly}
+        isActiveYearly={isActiveYearly}
       />
     </DashboardShell>
   );

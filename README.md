@@ -115,3 +115,17 @@ Open billing portal (authenticated):
 ```bash
 curl -X POST http://localhost:3000/api/billing/portal
 ```
+
+Sync plan after checkout return (authenticated):
+
+```bash
+curl -X POST http://localhost:3000/api/billing/sync \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"cs_test_..."}'
+```
+
+### Local billing troubleshooting
+
+1. Keep `stripe listen --forward-to localhost:3000/api/stripe/webhook` running while testing checkout.
+2. Ensure `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO_*`, and webhook secret all belong to the same Stripe account and mode.
+3. If checkout succeeds but UI remains Free, open `/dashboard/billing?status=success&session_id=...` and use the sync flow (or call `/api/billing/sync` manually).
