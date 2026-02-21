@@ -11,13 +11,94 @@ type RouteContext = {
   params: Promise<{ code: string }> | { code: string };
 };
 
+function renderNotFoundHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>urlsy.co — Link not found</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", "Trebuchet MS", sans-serif;
+        background: radial-gradient(circle at 20% -10%, #fff8c5, #f4f1e8);
+        color: #121212;
+      }
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        width: 100%;
+        max-width: 520px;
+        background: #ffffff;
+        border: 1.5px solid #1a1a1a;
+        border-radius: 32px;
+        box-shadow: 0 16px 35px rgba(18, 18, 18, 0.1);
+        padding: 32px;
+        text-align: center;
+      }
+      .eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #4a4a4a;
+      }
+      h1 {
+        margin: 10px 0 0;
+        font-size: 32px;
+        font-weight: 800;
+      }
+      p {
+        margin: 12px 0 0;
+        font-size: 14px;
+        color: #4a4a4a;
+      }
+      a {
+        display: inline-flex;
+        margin-top: 24px;
+        padding: 10px 20px;
+        border-radius: 999px;
+        border: 1.5px solid #1a1a1a;
+        background: #121212;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="eyebrow">404 error</div>
+        <h1>Link not found</h1>
+        <p>The short link you followed doesn’t exist or was removed.</p>
+        <a href="/">Back to home</a>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const { code } = await Promise.resolve(context.params);
   const normalizedCode = code.trim();
 
   if (!SHORT_CODE_PATTERN.test(normalizedCode) || isReservedCode(normalizedCode)) {
-    return new NextResponse("Link not found", { status: 404 });
+    return new NextResponse(renderNotFoundHtml(), {
+      status: 404,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
   }
 
   try {
@@ -50,7 +131,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
           code: normalizedCode,
         }),
       );
-      return new NextResponse("Link not found", { status: 404 });
+      return new NextResponse(renderNotFoundHtml(), {
+        status: 404,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
     }
 
     const ipHash = hashIp(getClientIp(request.headers), process.env.IP_HASH_SALT ?? "change-me");

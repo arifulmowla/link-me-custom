@@ -31,9 +31,30 @@ export function LinksTableCard({
   onCopy,
 }: LinksTableCardProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   function toggleAnalytics(linkId: string) {
     setExpandedId((prev) => (prev === linkId ? null : linkId));
+  }
+
+  async function openQr(code: string) {
+    const origin = window.location.origin;
+    setQrCode(code);
+    setQrUrl(`${origin}/q/${code}`);
+  }
+
+  async function downloadQr() {
+    if (!qrUrl || !qrCode) return;
+    const response = await fetch(qrUrl);
+    if (!response.ok) return;
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${qrCode}-qr.png`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   if (links.length === 0) {
@@ -124,6 +145,13 @@ export function LinksTableCard({
               >
                 {expandedId === link.id ? "Hide analytics" : "View analytics"}
               </button>
+              <button
+                type="button"
+                onClick={() => openQr(link.code)}
+                className="focus-ring rounded-full border border-[var(--stroke)] px-3 py-1 text-xs font-semibold"
+              >
+                QR
+              </button>
               {plan === "FREE" && (
                 <span className="rounded-full border border-[var(--stroke)]/30 bg-[var(--bg-hero)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
                   Pro
@@ -172,6 +200,13 @@ export function LinksTableCard({
                       </button>
                       <button
                         type="button"
+                        onClick={() => openQr(link.code)}
+                        className="focus-ring rounded-full border border-[var(--stroke)] px-3 py-1 text-xs font-semibold"
+                      >
+                        QR
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => toggleAnalytics(link.id)}
                         className="focus-ring rounded-full border border-[var(--stroke)] px-3 py-1 text-xs font-semibold"
                       >
@@ -200,6 +235,37 @@ export function LinksTableCard({
           </tbody>
         </table>
       </div>
+
+      {qrCode && qrUrl && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 p-4">
+          <div className="surface-card w-full max-w-sm rounded-[28px] bg-white p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">QR code</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setQrCode(null);
+                  setQrUrl(null);
+                }}
+                className="focus-ring rounded-full border border-[var(--stroke)] px-3 py-1 text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-col items-center gap-4">
+              <img src={qrUrl} alt={`QR code for ${qrCode}`} className="h-44 w-44 rounded-2xl border" />
+              <button
+                type="button"
+                onClick={downloadQr}
+                className="focus-ring hover-lift rounded-full border border-[var(--stroke)] bg-[var(--text-primary)] px-5 py-2 text-sm font-semibold text-white"
+              >
+                Download PNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
