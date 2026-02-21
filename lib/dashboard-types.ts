@@ -25,6 +25,7 @@ export type DashboardLinksResponse = {
   usage: DashboardUsage;
   kpis: DashboardKpis;
   links: DashboardLinkItem[];
+  nextCursor?: string | null;
 };
 
 export type AdvancedAnalyticsSeriesPoint = {

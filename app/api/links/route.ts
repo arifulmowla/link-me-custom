@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { getUserIdFromRequest } from "@/lib/auth-user";
 import { normalizeUrl } from "@/lib/url";
 import { generateShortCode } from "@/lib/short-code";
 import type { DashboardLinksResponse } from "@/lib/dashboard-types";
@@ -31,24 +31,30 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
-export async function GET() {
-  const session = await auth();
-  const userId = session?.user?.id;
+export async function GET(request: NextRequest) {
+  const userId = await getUserIdFromRequest(request);
   if (!userId) return unauthorized();
+
+  const limitParam = Number(request.nextUrl.searchParams.get("limit") ?? 20);
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 20;
+  const cursor = request.nextUrl.searchParams.get("cursor");
 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
   const monthStart = monthStartUtc();
   const now = new Date();
 
-  const [user, links, totalClicks, clicksLast7d, usageMonth, activeLinks] = await Promise.all([
+  const [user, links, totalLinksCount, totalClicks, clicksLast7d, usageMonth, activeLinks] =
+    await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: { planTier: true },
     }),
     db.link.findMany({
       where: { ownerUserId: userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       select: {
         id: true,
         code: true,
@@ -61,6 +67,9 @@ export async function GET() {
           },
         },
       },
+    }),
+    db.link.count({
+      where: { ownerUserId: userId },
     }),
     db.linkClick.count({
       where: {
@@ -94,6 +103,9 @@ export async function GET() {
   ]);
 
   const plan = user?.planTier ?? "FREE";
+  const hasNextPage = links.length > limit;
+  const pagedLinks = hasNextPage ? links.slice(0, limit) : links;
+  const nextCursor = hasNextPage ? pagedLinks[pagedLinks.length - 1]?.id ?? null : null;
   const response: DashboardLinksResponse = {
     plan,
     usage: {
@@ -103,11 +115,11 @@ export async function GET() {
       trackedClicksLimit: trackedClicksLimitForPlan(plan),
     },
     kpis: {
-      totalLinks: links.length,
+      totalLinks: totalLinksCount,
       totalClicks,
       clicksLast7d,
     },
-    links: links.map((link) => ({
+    links: pagedLinks.map((link) => ({
       id: link.id,
       code: link.code,
       targetUrl: link.targetUrl,
@@ -115,14 +127,14 @@ export async function GET() {
       expiresAt: link.expiresAt?.toISOString() ?? null,
       clickCount: link._count.clicks,
     })),
+    nextCursor,
   };
 
   return NextResponse.json(response);
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const userId = await getUserIdFromRequest(request);
   if (!userId) return unauthorized();
 
   let body: unknown;

@@ -21,6 +21,7 @@ urlsy.co is a URL shortener application built with Next.js App Router.
 - `AUTH_URL`: app URL (for local: `http://localhost:3000`)
 - `GOOGLE_CLIENT_ID`: Google OAuth client id
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
+- `MOBILE_JWT_SECRET`: secret for mobile JWT access tokens
 - `STRIPE_SECRET_KEY`: Stripe secret API key
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret
 - `STRIPE_PRICE_PRO_MONTHLY_USD`: Stripe Price ID for `$5/month`

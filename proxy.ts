@@ -14,14 +14,16 @@ function isProtectedPath(pathname: string) {
   );
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const hasSession = Boolean(
     request.cookies.get("__Secure-authjs.session-token") ??
       request.cookies.get("authjs.session-token"),
   );
+  const hasBearer = request.headers.get("authorization")?.startsWith("Bearer ");
+  const isAuthenticated = hasSession || Boolean(hasBearer);
 
-  if (!hasSession && isProtectedPath(pathname)) {
+  if (!isAuthenticated && isProtectedPath(pathname)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
@@ -30,7 +32,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (hasSession && pathname === "/login") {
+  if (isAuthenticated && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin));
   }
 

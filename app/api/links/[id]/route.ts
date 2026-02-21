@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { getUserIdFromRequest } from "@/lib/auth-user";
 
 export const runtime = "nodejs";
 
@@ -9,8 +9,7 @@ type RouteContext = {
 };
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const userId = await getUserIdFromRequest(_request);
 
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buildAnalyticsResponse } from "@/lib/analytics";
+import { getUserIdFromRequest } from "@/lib/auth-user";
 import { canUseAdvancedAnalytics } from "@/lib/plans";
 
 export const runtime = "nodejs";
@@ -14,8 +14,7 @@ function parseWindow(value: string | null): WindowKey {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
