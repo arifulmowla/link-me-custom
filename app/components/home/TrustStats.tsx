@@ -12,7 +12,7 @@ export function TrustStats() {
     <section
       id="about"
       aria-labelledby="about-title"
-      className="surface-card rounded-[32px] p-5 sm:p-7"
+      className="bg-[var(--bg-hero)] shadow-[var(--shadow-soft)] trust-section rounded-[32px] p-5 sm:p-7"
     >
       <div className="motion-fade-up motion-delay-2">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">

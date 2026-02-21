@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/auth";
+import { ProfileMenu } from "@/app/components/dashboard/ProfileMenu";
 
 type DashboardTopbarProps = {
   name?: string | null;
@@ -13,6 +14,11 @@ function userInitial(name?: string | null, email?: string | null) {
 
 export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
   const initial = userInitial(name, email);
+
+  async function handleSignOut() {
+    "use server";
+    await signOut({ redirectTo: "/" });
+  }
 
   return (
     <header className="motion-fade-up">
@@ -29,7 +35,7 @@ export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
 
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3">
           <a
-            href="#create-link"
+            href="/dashboard#create-link"
             className="focus-ring hover-lift rounded-full border border-[var(--stroke)] bg-[var(--bg-hero)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
           >
             New Link
@@ -48,23 +54,7 @@ export function DashboardTopbar({ name, email }: DashboardTopbarProps) {
             className="focus-ring h-10 w-full rounded-full border border-[var(--stroke)]/35 bg-white px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] sm:max-w-48"
           /> */}
 
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--stroke)] bg-[var(--text-primary)] text-sm font-bold text-white">
-            {initial}
-          </div>
-
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button
-              type="submit"
-              className="focus-ring rounded-full px-3 py-2 text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            >
-              Sign out
-            </button>
-          </form>
+          <ProfileMenu name={name} email={email} initial={initial} signOutAction={handleSignOut} />
         </div>
       </nav>
     </header>

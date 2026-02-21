@@ -23,6 +23,10 @@
   --font-sans: var(--font-body);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: radial-gradient(circle at 20% -10%, #fff8c5, var(--bg-canvas));
   color: var(--text-primary);
@@ -44,6 +48,11 @@ input {
 
 .surface-card {
   background: var(--surface);
+  border: 1.5px solid var(--stroke);
+  box-shadow: var(--shadow-soft);
+}
+
+.trust-section {
   border: 1.5px solid var(--stroke);
   box-shadow: var(--shadow-soft);
 }
