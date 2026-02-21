@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { AdvancedAnalyticsResponse } from "@/lib/dashboard-types";
 
@@ -31,9 +31,30 @@ export function AnalyticsCard({ plan }: AnalyticsCardProps) {
     plan === "PRO" ? { status: "loading" } : { status: "locked" },
   );
   const [windowValue, setWindowValue] = useState("30");
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (plan !== "PRO") return;
+    const el = sectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "120px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [plan]);
+
+  useEffect(() => {
+    if (plan !== "PRO" || !shouldLoad) return;
     let cancelled = false;
 
     async function load() {
@@ -63,7 +84,7 @@ export function AnalyticsCard({ plan }: AnalyticsCardProps) {
     return () => {
       cancelled = true;
     };
-  }, [plan, windowValue]);
+  }, [plan, windowValue, shouldLoad]);
 
   const series = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -76,7 +97,7 @@ export function AnalyticsCard({ plan }: AnalyticsCardProps) {
   }, [state]);
 
   return (
-    <section className="surface-card rounded-[28px] bg-white p-5 sm:p-6">
+    <section ref={sectionRef} className="surface-card rounded-[28px] bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">

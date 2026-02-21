@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+export const revalidate = 86400;
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://urlsy.co";
   const lastModified = new Date();

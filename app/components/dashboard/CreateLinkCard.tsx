@@ -119,7 +119,7 @@ export function CreateLinkCard({ plan, usage, onCreated }: CreateLinkCardProps) 
           value={expiresAt}
           onChange={(event) => setExpiresAt(event.target.value)}
           disabled={!isPro}
-          className="focus-ring h-11 w-full rounded-2xl border border-[var(--stroke)] bg-white px-4 text-sm disabled:cursor-not-allowed disabled:bg-[#f1f1ec]"
+          className="focus-ring h-11 w-full min-w-0 appearance-none rounded-2xl border border-[var(--stroke)] bg-white px-4 text-sm overflow-hidden text-ellipsis disabled:cursor-not-allowed disabled:bg-[#f1f1ec]"
         />
         <button
           type="submit"

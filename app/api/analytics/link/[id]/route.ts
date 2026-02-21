@@ -74,5 +74,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     },
   });
 
-  return NextResponse.json(buildAnalyticsResponse(clicks));
+  return NextResponse.json(buildAnalyticsResponse(clicks), {
+    headers: {
+      "Cache-Control": "private, max-age=60",
+    },
+  });
 }

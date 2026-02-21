@@ -61,5 +61,9 @@ export async function GET(request: NextRequest) {
 
   const analytics = buildAnalyticsResponse(clicks);
 
-  return NextResponse.json(analytics);
+  return NextResponse.json(analytics, {
+    headers: {
+      "Cache-Control": "private, max-age=60",
+    },
+  });
 }
