@@ -35,6 +35,10 @@ export const metadata: Metadata = {
       "urlsy.co helps you create short links fast with clean analytics and premium features when you grow.",
     images: ["/og.png"],
   },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
