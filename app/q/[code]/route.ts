@@ -32,8 +32,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const origin = request.nextUrl.origin;
   const shortUrl = `${origin}/${link.code}`;
   const png = await generateQrPng(shortUrl, 320);
+  const body = new Uint8Array(png);
 
-  return new NextResponse(png, {
+  return new NextResponse(body, {
     status: 200,
     headers: {
       "Content-Type": "image/png",
